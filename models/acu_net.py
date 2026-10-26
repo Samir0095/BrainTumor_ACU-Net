@@ -32,3 +32,38 @@ class SpatialAttention(nn.Module):
         output = x * attention_map
 
         return output
+
+
+
+
+class ChannelAttention(nn.Module):
+    def __init__(self, channels, reduction=16):
+        super().__init__()
+
+        hidden_channels = max(channels // reduction, 1)
+
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+
+        self.mlp = nn.Sequential(
+            nn.Linear(channels, hidden_channels),
+            nn.ReLU(inplace=True),
+            nn.Linear(hidden_channels, channels)
+        )
+
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        batch_size, channels, _, _ = x.shape
+
+        pooled = self.avg_pool(x)
+        pooled = pooled.view(batch_size, channels)
+
+        weights = self.mlp(pooled)
+        weights = self.sigmoid(weights)
+
+        weights = weights.view(batch_size, channels, 1, 1)
+
+        output = x * weights
+
+        return output
+
