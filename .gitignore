@@ -1,0 +1,20 @@
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Model checkpoints
+*.pth
+*.pt
+*.ckpt
+
+# MRI datasets and medical imaging files
+data/
+*.nii
+*.nii.gz
+
+# Experiment outputs
+results/
+runs/
