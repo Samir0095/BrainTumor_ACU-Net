@@ -1,4 +1,4 @@
-
+import math
 import torch
 import torch.nn as nn
 
@@ -67,3 +67,26 @@ class ChannelAttention(nn.Module):
 
         return output
 
+class AttentionGate(nn.Module):
+    def __init__(self, encoder_channels, decoder_channels, inter_channels):
+        super().__init__()
+
+        self.encoder_projection = nn.Conv2d(
+            encoder_channels, inter_channels, kernel_size=1, bias=False
+        )
+        self.decoder_projection = nn.Conv2d(
+            decoder_channels, inter_channels, kernel_size=1, bias=False
+        )
+
+        self.sigmoid = nn.Sigmoid()
+        self.scale = math.sqrt(inter_channels)
+
+    def forward(self, encoder_features, decoder_features):
+        keys = self.encoder_projection(encoder_features)
+        queries = self.decoder_projection(decoder_features)
+
+        scores = torch.sum(queries * keys, dim=1, keepdim=True) / self.scale
+        attention_map = self.sigmoid(scores)
+
+        gated_features = encoder_features * attention_map
+        return gated_features
