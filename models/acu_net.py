@@ -90,3 +90,27 @@ class AttentionGate(nn.Module):
 
         gated_features = encoder_features * attention_map
         return gated_features
+
+
+
+
+class DualAttention(nn.Module):
+    def __init__(self, channels, spatial_kernel_size=7, reduction=16):
+        super().__init__()
+
+        self.spatial_attention = SpatialAttention(
+            kernel_size=spatial_kernel_size
+        )
+
+        self.channel_attention = ChannelAttention(
+            channels=channels,
+            reduction=reduction
+        )
+
+    def forward(self, x):
+        spatial_features = self.spatial_attention(x)
+        channel_features = self.channel_attention(x)
+
+        output = spatial_features + channel_features
+
+        return output
