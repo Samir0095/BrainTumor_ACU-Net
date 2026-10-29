@@ -1,4 +1,4 @@
-import math
+
 import torch
 import torch.nn as nn
 
@@ -29,11 +29,7 @@ class SpatialAttention(nn.Module):
 
         attention_map = self.sigmoid(self.conv(combined))
 
-        output = x * attention_map
-
-        return output
-
-
+        return x * attention_map
 
 
 class ChannelAttention(nn.Module):
@@ -58,40 +54,33 @@ class ChannelAttention(nn.Module):
         pooled = self.avg_pool(x)
         pooled = pooled.view(batch_size, channels)
 
-        weights = self.mlp(pooled)
-        weights = self.sigmoid(weights)
-
+        weights = self.sigmoid(self.mlp(pooled))
         weights = weights.view(batch_size, channels, 1, 1)
 
-        output = x * weights
+        return x * weights
 
-        return output
 
 class AttentionGate(nn.Module):
     def __init__(self, encoder_channels, decoder_channels, inter_channels):
         super().__init__()
 
-        self.encoder_projection = nn.Conv2d(
-            encoder_channels, inter_channels, kernel_size=1, bias=False
-        )
-        self.decoder_projection = nn.Conv2d(
-            decoder_channels, inter_channels, kernel_size=1, bias=False
+        self.attention = nn.Conv2d(
+            encoder_channels + decoder_channels,
+            1,
+            kernel_size=1
         )
 
         self.sigmoid = nn.Sigmoid()
-        self.scale = math.sqrt(inter_channels)
 
     def forward(self, encoder_features, decoder_features):
-        keys = self.encoder_projection(encoder_features)
-        queries = self.decoder_projection(decoder_features)
+        combined = torch.cat(
+            [encoder_features, decoder_features],
+            dim=1
+        )
 
-        scores = torch.sum(queries * keys, dim=1, keepdim=True) / self.scale
-        attention_map = self.sigmoid(scores)
+        attention_map = self.sigmoid(self.attention(combined))
 
-        gated_features = encoder_features * attention_map
-        return gated_features
-
-
+        return encoder_features * attention_map
 
 
 class DualAttention(nn.Module):
@@ -111,10 +100,7 @@ class DualAttention(nn.Module):
         spatial_features = self.spatial_attention(x)
         channel_features = self.channel_attention(x)
 
-        output = spatial_features + channel_features
-
-        return output
-
+        return spatial_features + channel_features
 
 
 class DoubleConv(nn.Module):
@@ -134,7 +120,6 @@ class DoubleConv(nn.Module):
         return self.block(x)
 
 
-
 class ACUNet(nn.Module):
     def __init__(self):
         super().__init__()
@@ -145,12 +130,10 @@ class ACUNet(nn.Module):
         self.encoder3 = DoubleConv(32, 64)
         self.encoder4 = DoubleConv(64, 128)
 
-        # Bottleneck
-        self.bottleneck = DoubleConv(128, 256)
-
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
 
-        # Dual Attention at the bottleneck
+        # Bottleneck and Dual Attention
+        self.bottleneck = DoubleConv(128, 256)
         self.dual_attention = DualAttention(channels=256)
 
         # Decoder upsampling
@@ -167,7 +150,7 @@ class ACUNet(nn.Module):
             32, 16, kernel_size=2, stride=2
         )
 
-        # Attention Gates for skip connections
+        # Attention gates for skip connections
         self.attention_gate4 = AttentionGate(
             encoder_channels=128,
             decoder_channels=128,
@@ -195,7 +178,7 @@ class ACUNet(nn.Module):
         self.decoder2 = DoubleConv(64, 32)
         self.decoder1 = DoubleConv(32, 16)
 
-        # Raw segmentation logits
+        # One-channel raw segmentation logits
         self.output = nn.Conv2d(16, 1, kernel_size=1)
 
     def forward(self, x):
@@ -205,7 +188,7 @@ class ACUNet(nn.Module):
         enc3 = self.encoder3(self.pool(enc2))
         enc4 = self.encoder4(self.pool(enc3))
 
-        # Bottleneck + Dual Attention
+        # Bottleneck and Dual Attention
         bottleneck = self.bottleneck(self.pool(enc4))
         bottleneck = self.dual_attention(bottleneck)
 

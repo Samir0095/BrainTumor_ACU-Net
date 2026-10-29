@@ -1,3 +1,4 @@
+
 import torch
 from models.acu_net import ACUNet
 
@@ -26,15 +27,27 @@ def main():
 
     assert x.grad is not None
 
-    for name in ("attention_gate1", "attention_gate2",
-                 "attention_gate3", "attention_gate4"):
+    for name in (
+        "attention_gate1",
+        "attention_gate2",
+        "attention_gate3",
+        "attention_gate4"
+    ):
         gate = getattr(model, name)
-        assert gate.encoder_projection.weight.grad is not None
-        assert gate.decoder_projection.weight.grad is not None
+
+        assert gate.attention.weight.grad is not None
+        assert gate.attention.bias.grad is not None
+
         print(f"{name}: gradient PASS")
 
-    assert model.dual_attention.spatial_attention.conv.weight.grad is not None
-    assert model.dual_attention.channel_attention.mlp[0].weight.grad is not None
+    assert (
+        model.dual_attention.spatial_attention.conv.weight.grad
+        is not None
+    )
+    assert (
+        model.dual_attention.channel_attention.mlp[0].weight.grad
+        is not None
+    )
 
     print("Dual Attention gradients: PASS")
     print("ACUNet integration test PASSED!")
